@@ -1,0 +1,22 @@
+# Single-node Elasticsearch tuned for Railway.
+cluster.name: railway-elk
+node.name: elasticsearch-1
+discovery.type: single-node
+
+# IPv6 wildcard: a dual-stack socket on Linux, so it accepts IPv4 and IPv6.
+# Needed for Railway private networking in IPv6-only (legacy) environments.
+network.host: "::"
+
+# Authentication is on. TLS is off because traffic stays on Railway's
+# WireGuard-encrypted private network. Never give this service a public domain.
+xpack.security.enabled: true
+xpack.security.http.ssl.enabled: false
+xpack.security.transport.ssl.enabled: false
+
+# Do not depend on the host's vm.max_map_count (not tunable on Railway).
+# Remove this line if you know the host allows 262144 or more.
+node.store.allow_mmap: false
+
+# Keep memory and egress down.
+xpack.ml.enabled: false
+ingest.geoip.downloader.enabled: false

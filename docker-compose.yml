@@ -1,0 +1,44 @@
+# Local smoke test of the same three services. Not used by Railway.
+#   cp .env.example .env   # then edit the passwords
+#   docker compose up --build
+# Kibana: http://localhost:5601 (log in as "elastic")
+# Needs about 3 GB of free RAM.
+services:
+  elasticsearch:
+    build: ./elasticsearch
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?set in .env}
+      KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:?set in .env}
+      LOGSTASH_WRITER_PASSWORD: ${LOGSTASH_WRITER_PASSWORD:?set in .env}
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+
+  logstash:
+    build: ./logstash
+    depends_on:
+      - elasticsearch
+    environment:
+      ES_URL: http://elasticsearch:9200
+      ES_USER: logstash_writer
+      ES_PASSWORD: ${LOGSTASH_WRITER_PASSWORD:?set in .env}
+      INPUT_USER: shipper
+      INPUT_PASSWORD: ${INPUT_PASSWORD:?set in .env}
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  kibana:
+    build: ./kibana
+    depends_on:
+      - elasticsearch
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:?set in .env}
+      XPACK_SECURITY_ENCRYPTIONKEY: ${KIBANA_ENCRYPTION_KEY:?set in .env}
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_ENCRYPTION_KEY:?set in .env}
+      XPACK_REPORTING_ENCRYPTIONKEY: ${KIBANA_ENCRYPTION_KEY:?set in .env}
+    ports:
+      - "127.0.0.1:5601:5601"
+
+volumes:
+  es-data:

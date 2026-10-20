@@ -1,0 +1,4 @@
+api.http.host: "::"
+api.http.port: 9600
+config.reload.automatic: false
+log.level: info
