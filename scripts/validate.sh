@@ -74,6 +74,9 @@ bash tests/test_setup.sh || status=1
 step "entrypoint.sh behaviour (mock privilege tools)"
 bash tests/test_entrypoint.sh || status=1
 
+step "smoke_test.sh logic (mock curl and docker compose)"
+bash tests/test_smoke.sh || status=1
+
 echo
 [ "$status" -eq 0 ] && echo "ALL CHECKS PASSED" || echo "SOME CHECKS FAILED"
 exit "$status"

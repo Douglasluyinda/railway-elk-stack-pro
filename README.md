@@ -11,8 +11,10 @@ browser ──(HTTPS + login)──> Kibana ────────────
 ```
 
 > **Status:** the scripts and configs pass the checks listed under [What is verified](#what-is-verified).
-> The stack has **not yet been deployed on Railway** and the Elastic images have not been run by the
-> author. Deploy once and walk through [Verify the deployment](#verify-the-deployment) before publishing.
+> The stack has **not yet been deployed on Railway**. A GitHub Actions workflow
+> ([.github/workflows/ci.yml](.github/workflows/ci.yml)) builds the real images and runs an end-to-end
+> smoke test, but **it has not run yet**: check that the latest run is green before relying on this.
+> Deploy once and walk through [Verify the deployment](#verify-the-deployment) before publishing.
 
 ## What you get
 
@@ -29,8 +31,10 @@ Versions are build arguments (`ELASTIC_VERSION`) in each Dockerfile. Keep all th
 Use the template's deploy button once it is published, or build it yourself from this repo by following
 [TEMPLATE.md](TEMPLATE.md) (exact service names, root directories, variables and volume).
 
-To try it locally first: `cp .env.example .env`, fill in the values, then `docker compose up --build`
-(about 3 GB of free RAM).
+To try it locally first: `cp .env.example .env`, fill in the values, then `docker compose up --build -d`
+(about 3 GB of free RAM). Once Kibana is up, `bash scripts/smoke_test.sh` sends a real event through the
+intake and checks that it is searchable, that credentials are not indexed, and that the writer user
+cannot read data. It needs `docker compose`, `curl` and `python3`.
 
 ## Verify the deployment
 
@@ -101,9 +105,16 @@ Run `bash scripts/validate.sh` (no Docker or network needed).
 | `railway.json` and YAML files parse | Python `json` and `yaml` |
 | `setup.sh` call order, JSON bodies, retries, input validation, credentials kept off the command line | 16 tests against a fake `curl` |
 | `entrypoint.sh` volume chown and privilege drop | 5 tests against fake `id`, `stat`, `chown`, `setpriv`, `runuser` |
+| `smoke_test.sh` logic | 11 tests against a fake `curl` and fake `docker compose`: passes on a healthy stack, fails on each broken one |
 | Logstash pipeline structure | Brace and section check only |
 
-**Not verified** (the sandbox could not reach Elastic's registries, and nothing was deployed):
+**Written but not yet run** (needs Docker with access to Elastic's registry; the CI workflow does this on GitHub):
+
+- `docker compose build` of all three images, and `logstash --config.test_and_exit` on the pipeline.
+- `scripts/smoke_test.sh` against the running stack: Kibana status, intake 401/200, indexing, no credentials in
+  the index, and the writer user getting 403 on reads.
+
+**Not verified** (the authoring sandbox could not reach Elastic's registries, and nothing was deployed):
 
 - Docker builds, and that tag `8.19.21` exists for all three images.
 - Elasticsearch starting with the config and volume ownership handling, including the `setpriv` privilege drop.

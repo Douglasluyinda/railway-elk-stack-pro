@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    name: Static checks and script tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m pip install pyyaml
+      - run: bash scripts/validate.sh
+
+  stack:
+    name: Build images and run the stack end to end
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create throwaway credentials
+        run: |
+          {
+            echo "ELASTIC_PASSWORD=$(openssl rand -hex 24)"
+            echo "KIBANA_SYSTEM_PASSWORD=$(openssl rand -hex 24)"
+            echo "LOGSTASH_WRITER_PASSWORD=$(openssl rand -hex 24)"
+            echo "INPUT_PASSWORD=$(openssl rand -hex 24)"
+            echo "KIBANA_ENCRYPTION_KEY=$(openssl rand -hex 24)"
+          } > .env
+
+      - name: Build the three images
+        run: docker compose build
+
+      - name: Validate the Logstash pipeline with the real Logstash
+        run: |
+          docker compose run --rm --no-deps \
+            -e ES_URL=http://elasticsearch:9200 -e ES_USER=u -e ES_PASSWORD=p \
+            -e INPUT_USER=shipper -e INPUT_PASSWORD=p \
+            logstash logstash --config.test_and_exit -f /usr/share/logstash/pipeline/logstash.conf
+
+      - name: Start the stack
+        run: docker compose up -d
+
+      - name: Smoke test (intake, indexing, security)
+        run: bash scripts/smoke_test.sh
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail=200
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
